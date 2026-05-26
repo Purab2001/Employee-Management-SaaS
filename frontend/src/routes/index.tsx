@@ -1,20 +1,28 @@
+/* eslint-disable react-refresh/only-export-components */
+
+import { lazy } from "react"
 import { createBrowserRouter, Link } from "react-router"
 import PublicLayout from "@/layouts/PublicLayout"
 import DashboardLayout from "@/layouts/DashboardLayout"
+import { ProtectedRoute } from "@/components/shared/ProtectedRoute"
+import { PageFrame } from "@/components/shared/PageTransition"
+import { SuspensePage } from "@/components/shared/SuspensePage"
+
+// Static imports for critical pages
 import Home from "@/pages/Home"
 import Login from "@/pages/Login"
 import Register from "@/pages/Register"
 import Contact from "@/pages/Contact"
 import DashboardHome from "@/pages/dashboard/DashboardHome"
-import WorkSheet from "@/pages/dashboard/WorkSheet"
-import PaymentHistory from "@/pages/dashboard/PaymentHistory"
-import EmployeeList from "@/pages/dashboard/EmployeeList"
-import EmployeeDetails from "@/pages/dashboard/EmployeeDetails"
-import Progress from "@/pages/dashboard/Progress"
-import AllEmployeeList from "@/pages/dashboard/AllEmployeeList"
-import Payroll from "@/pages/dashboard/Payroll"
-import { ProtectedRoute } from "@/components/shared/ProtectedRoute"
-import { PageFrame } from "@/components/shared/PageTransition"
+
+// Lazy-loaded dashboard pages for code splitting
+const WorkSheet = lazy(() => import("@/pages/dashboard/WorkSheet"))
+const PaymentHistory = lazy(() => import("@/pages/dashboard/PaymentHistory"))
+const EmployeeList = lazy(() => import("@/pages/dashboard/EmployeeList"))
+const EmployeeDetails = lazy(() => import("@/pages/dashboard/EmployeeDetails"))
+const Progress = lazy(() => import("@/pages/dashboard/Progress"))
+const AllEmployeeList = lazy(() => import("@/pages/dashboard/AllEmployeeList"))
+const Payroll = lazy(() => import("@/pages/dashboard/Payroll"))
 
 export const router = createBrowserRouter([
   {
@@ -36,13 +44,62 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <PageFrame><DashboardHome /></PageFrame> },
-      { path: "work-sheet", element: <ProtectedRoute roles={["employee"]}><PageFrame><WorkSheet /></PageFrame></ProtectedRoute> },
-      { path: "payment-history", element: <ProtectedRoute roles={["employee"]}><PageFrame><PaymentHistory /></PageFrame></ProtectedRoute> },
-      { path: "employee-list", element: <ProtectedRoute roles={["hr"]}><PageFrame><EmployeeList /></PageFrame></ProtectedRoute> },
-      { path: "details/:id", element: <ProtectedRoute roles={["hr"]}><PageFrame><EmployeeDetails /></PageFrame></ProtectedRoute> },
-      { path: "progress", element: <ProtectedRoute roles={["hr"]}><PageFrame><Progress /></PageFrame></ProtectedRoute> },
-      { path: "all-employee-list", element: <ProtectedRoute roles={["admin"]}><PageFrame><AllEmployeeList /></PageFrame></ProtectedRoute> },
-      { path: "payroll", element: <ProtectedRoute roles={["admin"]}><PageFrame><Payroll /></PageFrame></ProtectedRoute> },
+      {
+        path: "work-sheet",
+        element: (
+          <ProtectedRoute roles={["employee"]}>
+            <SuspensePage><WorkSheet /></SuspensePage>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "payment-history",
+        element: (
+          <ProtectedRoute roles={["employee"]}>
+            <SuspensePage><PaymentHistory /></SuspensePage>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "employee-list",
+        element: (
+          <ProtectedRoute roles={["hr"]}>
+            <SuspensePage><EmployeeList /></SuspensePage>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "details/:id",
+        element: (
+          <ProtectedRoute roles={["hr"]}>
+            <SuspensePage><EmployeeDetails /></SuspensePage>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "progress",
+        element: (
+          <ProtectedRoute roles={["hr"]}>
+            <SuspensePage><Progress /></SuspensePage>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "all-employee-list",
+        element: (
+          <ProtectedRoute roles={["admin"]}>
+            <SuspensePage><AllEmployeeList /></SuspensePage>
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "payroll",
+        element: (
+          <ProtectedRoute roles={["admin"]}>
+            <SuspensePage><Payroll /></SuspensePage>
+          </ProtectedRoute>
+        ),
+      },
     ],
   },
   {

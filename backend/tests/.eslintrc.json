@@ -1,0 +1,3 @@
+<root>
+  <RuleRef ref="rules/test-organization.xml" />
+</root>

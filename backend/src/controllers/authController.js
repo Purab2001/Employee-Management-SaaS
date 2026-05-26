@@ -11,6 +11,10 @@ const generateToken = (user) => {
 const register = async (req, res) => {
   const { idToken, name } = req.body;
 
+  if (!idToken) {
+    return res.status(401).json({ message: "Authentication token is required" });
+  }
+
   const decoded = await admin.auth().verifyIdToken(idToken);
   const { uid, email, picture } = decoded;
 
@@ -49,6 +53,10 @@ const register = async (req, res) => {
 
 const login = async (req, res) => {
   const { idToken } = req.body;
+
+  if (!idToken) {
+    return res.status(401).json({ message: "Authentication token is required" });
+  }
 
   const decoded = await admin.auth().verifyIdToken(idToken);
   const { uid, email, name, picture } = decoded;

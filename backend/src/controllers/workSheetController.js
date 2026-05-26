@@ -85,7 +85,7 @@ exports.updateWorkSheet = async (req, res) => {
     const entry = await WorkSheet.findOneAndUpdate(
       { _id: id, employeeEmail: req.user.email },
       update,
-      { new: true, runValidators: true }
+      { returnDocument: "after", runValidators: true }
     );
 
     if (!entry) {
