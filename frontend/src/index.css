@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", "sans-serif";
+  --font-heading: "Outfit", "sans-serif";
+
+  --color-text: #201703;
+  --color-bg: #fef8f0;
+  --color-primary: #ec991e;
+  --color-secondary: #7dd9f4;
+  --color-accent: #6459f1;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: "Plus Jakarta Sans", sans-serif;
+}
