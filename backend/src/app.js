@@ -8,6 +8,7 @@ const contactRoutes = require("./routes/contact");
 const workSheetRoutes = require("./routes/workSheet");
 const paymentHistoryRoutes = require("./routes/paymentHistory");
 const hrRoutes = require("./routes/hr");
+const adminRoutes = require("./routes/admin");
 
 const app = express();
 
@@ -26,6 +27,7 @@ app.use("/api/contact", contactRoutes);
 app.use("/api/worksheets", workSheetRoutes);
 app.use("/api/payments", paymentHistoryRoutes);
 app.use("/api/hr", hrRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use((err, _req, res, _next) => {
   console.error(err);
