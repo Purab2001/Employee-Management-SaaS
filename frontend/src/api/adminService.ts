@@ -72,3 +72,10 @@ export async function approvePayroll(payload: {
   const { data } = await api.post("/api/admin/payrolls", payload)
   return data
 }
+
+export async function createPaymentSession(
+  payrollId: string
+): Promise<{ url: string }> {
+  const { data } = await api.post<{ url: string }>("/api/payments/create-checkout-session", { payrollId })
+  return data
+}

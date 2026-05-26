@@ -1,7 +1,8 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { type ColumnDef } from "@tanstack/react-table"
-import { Database, Plus, CheckCircle, XCircle } from "lucide-react"
+import { useSearchParams, useNavigate } from "react-router"
+import { Database, Plus, CheckCircle, XCircle, ExternalLink, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { DataTable } from "@/components/shared/DataTable"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -27,6 +28,7 @@ import {
   getPayrolls,
   approvePayroll,
   getAllEmployees,
+  createPaymentSession,
   type PayrollRecord,
 } from "@/api/adminService"
 
@@ -40,10 +42,25 @@ const YEARS = Array.from({ length: 5 }, (_, i) => currentYear - i)
 
 export default function Payroll() {
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [approveOpen, setApproveOpen] = useState(false)
   const [selectedEmployee, setSelectedEmployee] = useState("")
   const [selectedMonth, setSelectedMonth] = useState("")
   const [selectedYear, setSelectedYear] = useState(currentYear)
+  const [payingId, setPayingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const payment = searchParams.get("payment")
+    if (payment === "success") {
+      toast.success("Payment completed successfully")
+      queryClient.invalidateQueries({ queryKey: ["admin", "payrolls"] })
+      navigate("/dashboard/payroll", { replace: true })
+    } else if (payment === "cancelled") {
+      toast.error("Payment was cancelled")
+      navigate("/dashboard/payroll", { replace: true })
+    }
+  }, [searchParams, queryClient, navigate])
 
   const { data: payrolls, isLoading: payrollsLoading } = useQuery({
     queryKey: ["admin", "payrolls"],
@@ -75,6 +92,24 @@ export default function Payroll() {
       toast.error(error.response?.data?.message || "Failed to approve payroll")
     },
   })
+
+  const payMutation = useMutation({
+    mutationFn: (payrollId: string) => createPaymentSession(payrollId),
+    onSuccess: (data) => {
+      window.location.href = data.url
+    },
+    onError: (error: { response?: { data?: { message?: string } } }) => {
+      toast.error(error.response?.data?.message || "Failed to process payment")
+    },
+    onSettled: () => {
+      setPayingId(null)
+    },
+  })
+
+  const handlePay = useCallback((payrollId: string) => {
+    setPayingId(payrollId)
+    payMutation.mutate(payrollId)
+  }, [payMutation])
 
   const openApproveDialog = () => {
     setSelectedEmployee("")
@@ -154,8 +189,39 @@ export default function Payroll() {
           )
         },
       },
+      {
+        id: "actions",
+        header: "Actions",
+        cell: ({ row }) => {
+          const record = row.original
+          const isLoading = payingId === record._id
+
+          if (record.paid) {
+            return (
+              <Badge variant="secondary" className="bg-text/5 text-text/40">
+                Paid
+              </Badge>
+            )
+          }
+
+          return (
+            <Button
+              size="sm"
+              onClick={() => handlePay(record._id)}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <Loader2 className="mr-1 size-3.5 animate-spin" />
+              ) : (
+                <ExternalLink className="mr-1 size-3.5" />
+              )}
+              Pay Now
+            </Button>
+          )
+        },
+      },
     ],
-    [],
+    [payingId, handlePay],
   )
 
   return (
