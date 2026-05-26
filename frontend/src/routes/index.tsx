@@ -14,16 +14,17 @@ import Progress from "@/pages/dashboard/Progress"
 import AllEmployeeList from "@/pages/dashboard/AllEmployeeList"
 import Payroll from "@/pages/dashboard/Payroll"
 import { ProtectedRoute } from "@/components/shared/ProtectedRoute"
+import { PageFrame } from "@/components/shared/PageTransition"
 
 export const router = createBrowserRouter([
   {
     path: "/",
     element: <PublicLayout />,
     children: [
-      { index: true, element: <Home /> },
-      { path: "login", element: <Login /> },
-      { path: "register", element: <Register /> },
-      { path: "contact", element: <Contact /> },
+      { index: true, element: <PageFrame><Home /></PageFrame> },
+      { path: "login", element: <PageFrame><Login /></PageFrame> },
+      { path: "register", element: <PageFrame><Register /></PageFrame> },
+      { path: "contact", element: <PageFrame><Contact /></PageFrame> },
     ],
   },
   {
@@ -34,24 +35,24 @@ export const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { index: true, element: <DashboardHome /> },
-      { path: "work-sheet", element: <ProtectedRoute roles={["employee"]}><WorkSheet /></ProtectedRoute> },
-      { path: "payment-history", element: <ProtectedRoute roles={["employee"]}><PaymentHistory /></ProtectedRoute> },
-      { path: "employee-list", element: <ProtectedRoute roles={["hr"]}><EmployeeList /></ProtectedRoute> },
-      { path: "details/:id", element: <ProtectedRoute roles={["hr"]}><EmployeeDetails /></ProtectedRoute> },
-      { path: "progress", element: <ProtectedRoute roles={["hr"]}><Progress /></ProtectedRoute> },
-      { path: "all-employee-list", element: <ProtectedRoute roles={["admin"]}><AllEmployeeList /></ProtectedRoute> },
-      { path: "payroll", element: <ProtectedRoute roles={["admin"]}><Payroll /></ProtectedRoute> },
+      { index: true, element: <PageFrame><DashboardHome /></PageFrame> },
+      { path: "work-sheet", element: <ProtectedRoute roles={["employee"]}><PageFrame><WorkSheet /></PageFrame></ProtectedRoute> },
+      { path: "payment-history", element: <ProtectedRoute roles={["employee"]}><PageFrame><PaymentHistory /></PageFrame></ProtectedRoute> },
+      { path: "employee-list", element: <ProtectedRoute roles={["hr"]}><PageFrame><EmployeeList /></PageFrame></ProtectedRoute> },
+      { path: "details/:id", element: <ProtectedRoute roles={["hr"]}><PageFrame><EmployeeDetails /></PageFrame></ProtectedRoute> },
+      { path: "progress", element: <ProtectedRoute roles={["hr"]}><PageFrame><Progress /></PageFrame></ProtectedRoute> },
+      { path: "all-employee-list", element: <ProtectedRoute roles={["admin"]}><PageFrame><AllEmployeeList /></PageFrame></ProtectedRoute> },
+      { path: "payroll", element: <ProtectedRoute roles={["admin"]}><PageFrame><Payroll /></PageFrame></ProtectedRoute> },
     ],
   },
   {
     path: "/unauthorized",
     element: (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-heading">401</h1>
+        <div className="space-y-4 text-center">
+          <h1 className="font-heading text-6xl font-bold text-primary">401</h1>
           <p className="text-muted-foreground">You do not have access to this page</p>
-          <Link to="/dashboard" className="text-primary hover:underline">Go to Dashboard</Link>
+          <Link to="/dashboard" className="inline-block text-primary hover:underline">Go to Dashboard</Link>
         </div>
       </div>
     ),
@@ -60,10 +61,10 @@ export const router = createBrowserRouter([
     path: "*",
     element: (
       <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-heading">404</h1>
+        <div className="space-y-4 text-center">
+          <h1 className="font-heading text-6xl font-bold text-primary">404</h1>
           <p className="text-muted-foreground">Page not found</p>
-          <Link to="/dashboard" className="text-primary hover:underline">Go to Dashboard</Link>
+          <Link to="/dashboard" className="inline-block text-primary hover:underline">Go to Dashboard</Link>
         </div>
       </div>
     ),

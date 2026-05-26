@@ -2,9 +2,10 @@ import { useMemo, useState } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { type ColumnDef } from "@tanstack/react-table"
 import { Link } from "react-router"
-import { Users, BadgeCheck, Wallet, ExternalLink } from "lucide-react"
+import { Users, BadgeCheck, Wallet, ExternalLink, User } from "lucide-react"
 import { toast } from "sonner"
 import { DataTable } from "@/components/shared/DataTable"
+import { ViewToggle } from "@/components/shared/ViewToggle"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,6 +27,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import { getEmployees, verifyEmployee, payEmployee, type Employee } from "@/api/hrService"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -42,7 +44,10 @@ export default function EmployeeList() {
   const [payMonth, setPayMonth] = useState("")
   const [payYear, setPayYear] = useState(currentYear)
 
-  const { data: employees, isLoading } = useQuery({
+  const isMobile = useMediaQuery("(max-width: 640px)")
+  const [viewMode, setViewMode] = useState<"table" | "card">("table")
+
+  const { data: employees, isLoading, isError, refetch } = useQuery({
     queryKey: ["hr", "employees"],
     queryFn: getEmployees,
   })
@@ -174,6 +179,55 @@ export default function EmployeeList() {
     [verifyMutation],
   )
 
+  const empList = employees ?? []
+
+  const cardView = isMobile && viewMode === "card" ? (
+    <div className="grid gap-3">
+      {empList.map((emp) => (
+        <Card key={emp._id} className="border-primary/10 bg-bg transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+          <CardContent className="p-4">
+            <Link to={`/dashboard/details/${emp._id}`} className="flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                {emp.name.charAt(0).toUpperCase()}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="font-medium truncate">{emp.name}</p>
+                <p className="text-xs text-text/40 truncate">{emp.email}</p>
+              </div>
+              <Badge
+                variant={emp.isVerified ? "default" : "secondary"}
+                className={emp.isVerified ? "bg-green-500/10 text-green-600" : ""}
+              >
+                {emp.isVerified ? "Verified" : emp.status === "fired" ? "Fired" : "Pending"}
+              </Badge>
+            </Link>
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="text-text/60">{emp.designation || "—"}</span>
+              <span className="font-medium">${emp.salary.toLocaleString()}</span>
+            </div>
+            <div className="mt-3 flex gap-2">
+              {!emp.isVerified && emp.status === "active" && (
+                <Button size="xs" variant="outline" onClick={() => verifyMutation.mutate(emp._id)}>
+                  <BadgeCheck className="size-3" />
+                  Verify
+                </Button>
+              )}
+              <Button size="xs" variant="outline" disabled={!emp.isVerified || emp.status === "fired"} onClick={() => openPayDialog(emp)}>
+                <Wallet className="size-3" />
+                Pay
+              </Button>
+              <Link to={`/dashboard/details/${emp._id}`}>
+                <Button size="xs" variant="ghost">
+                  <ExternalLink className="size-3" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  ) : undefined
+
   return (
     <div className="space-y-6">
       <div>
@@ -183,17 +237,24 @@ export default function EmployeeList() {
 
       <Card className="border-primary/10 bg-bg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg font-heading">
-            <Users className="size-5 text-primary" />
-            All Employees
+          <CardTitle className="flex items-center justify-between gap-2 text-lg font-heading">
+            <span className="flex items-center gap-2">
+              <Users className="size-5 text-primary" />
+              All Employees
+            </span>
+            <ViewToggle value={viewMode} onChange={setViewMode} />
           </CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
             columns={columns}
-            data={employees ?? []}
+            data={empList}
             loading={isLoading}
+            isError={isError}
+            onRetry={() => refetch()}
             emptyMessage="No employees found"
+            emptyIcon={User}
+            cardView={cardView}
           />
         </CardContent>
       </Card>
@@ -208,9 +269,9 @@ export default function EmployeeList() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Month</Label>
+              <Label htmlFor="pay-month">Month</Label>
               <Select value={payMonth} onValueChange={(v) => v && setPayMonth(v)}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="pay-month" className="w-full">
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
                 <SelectContent>
@@ -223,9 +284,9 @@ export default function EmployeeList() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Year</Label>
+              <Label htmlFor="pay-year">Year</Label>
               <Select value={String(payYear)} onValueChange={(v) => v && setPayYear(Number(v))}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="pay-year" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -238,14 +299,15 @@ export default function EmployeeList() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Amount ($)</Label>
+              <Label htmlFor="pay-amount">Amount ($)</Label>
               <Input
+                id="pay-amount"
                 type="number"
                 value={payEmployeeData?.salary ?? 0}
                 readOnly
                 className="bg-muted"
               />
-              <p className="text-xs text-text/40">
+              <p id="pay-amount-hint" className="text-xs text-text/40">
                 Amount is based on employee's current salary
               </p>
             </div>

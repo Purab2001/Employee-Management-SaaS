@@ -21,7 +21,17 @@ const userSchema = new mongoose.Schema(
       default: "active",
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: {
+      transform(_doc, ret) {
+        if (ret.bank_account_no && ret.bank_account_no.length > 4) {
+          ret.bank_account_no = "****" + ret.bank_account_no.slice(-4);
+        }
+        return ret;
+      },
+    },
+  }
 );
 
 module.exports = mongoose.model("User", userSchema);

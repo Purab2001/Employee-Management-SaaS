@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Payroll = require("../models/Payroll");
+const { VALID_MONTHS, isValidObjectId, isValidMonth, isValidYear, isPositiveNumber } = require("../utils/validation");
 
 exports.getAllEmployees = async (req, res) => {
   try {
@@ -16,6 +17,10 @@ exports.getAllEmployees = async (req, res) => {
 
 exports.promoteToHR = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -42,6 +47,10 @@ exports.promoteToHR = async (req, res) => {
 
 exports.fireEmployee = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
+    }
+
     const user = await User.findById(req.params.id);
 
     if (!user) {
@@ -70,8 +79,13 @@ exports.updateSalary = async (req, res) => {
   try {
     const { salary } = req.body;
 
-    if (!salary || salary <= 0) {
-      return res.status(400).json({ message: "Valid salary amount is required" });
+    const salaryNum = Number(salary);
+    if (!Number.isFinite(salaryNum) || salaryNum <= 0 || salaryNum > 10000000) {
+      return res.status(400).json({ message: "Salary must be greater than 0" });
+    }
+
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid user ID" });
     }
 
     const user = await User.findById(req.params.id);
@@ -84,11 +98,11 @@ exports.updateSalary = async (req, res) => {
       return res.status(400).json({ message: "Only employee salaries can be updated" });
     }
 
-    if (salary <= user.salary) {
+    if (salaryNum <= user.salary) {
       return res.status(400).json({ message: "Salary can only be increased" });
     }
 
-    user.salary = salary;
+    user.salary = salaryNum;
     await user.save();
 
     res.json({ message: "Salary updated successfully", user });
@@ -113,11 +127,26 @@ exports.getPayrolls = async (req, res) => {
 
 exports.approvePayroll = async (req, res) => {
   try {
-    const { employeeId, month, year } = req.body;
+    let { employeeId, month, year } = req.body;
 
     if (!employeeId || !month || !year) {
       return res.status(400).json({ message: "Employee ID, month, and year are required" });
     }
+
+    if (!isValidObjectId(employeeId)) {
+      return res.status(400).json({ message: "Invalid employee ID" });
+    }
+
+    if (!isValidMonth(month)) {
+      return res.status(400).json({ message: "Invalid month name" });
+    }
+
+    const yearNum = Number(year);
+    if (!Number.isInteger(yearNum) || yearNum < 1900 || yearNum > 2100) {
+      return res.status(400).json({ message: "Invalid year" });
+    }
+
+    month = month.toLowerCase();
 
     const employee = await User.findById(employeeId);
 
@@ -136,7 +165,7 @@ exports.approvePayroll = async (req, res) => {
     const existing = await Payroll.findOne({
       employeeId,
       month,
-      year,
+      year: yearNum,
     });
 
     if (existing) {
@@ -150,7 +179,7 @@ exports.approvePayroll = async (req, res) => {
       employeeEmail: employee.email,
       salary: employee.salary,
       month,
-      year,
+      year: yearNum,
       transactionId,
     });
 

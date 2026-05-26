@@ -1,9 +1,10 @@
 import { useMemo, useState, useCallback, useRef } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { type ColumnDef } from "@tanstack/react-table"
-import { ListChecks, UserX, UserCog, DollarSign } from "lucide-react"
+import { ListChecks, UserX, UserCog, DollarSign, User } from "lucide-react"
 import { toast } from "sonner"
 import { DataTable } from "@/components/shared/DataTable"
+import { ViewToggle } from "@/components/shared/ViewToggle"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -26,6 +27,7 @@ import {
   updateSalary,
   type AdminEmployee,
 } from "@/api/adminService"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 
 export default function AllEmployeeList() {
   const queryClient = useQueryClient()
@@ -35,7 +37,10 @@ export default function AllEmployeeList() {
   const [newSalary, setNewSalary] = useState("")
   const salaryTargetRef = useRef<string | null>(null)
 
-  const { data: employees, isLoading } = useQuery({
+  const isMobile = useMediaQuery("(max-width: 640px)")
+  const [viewMode, setViewMode] = useState<"table" | "card">("table")
+
+  const { data: employees, isLoading, isError, refetch } = useQuery({
     queryKey: ["admin", "employees"],
     queryFn: getAllEmployees,
   })
@@ -109,6 +114,8 @@ export default function AllEmployeeList() {
     setNewSalary(String(employee.salary))
     setSalaryOpen(true)
   }
+
+  const empList = employees ?? []
 
   const columns = useMemo<ColumnDef<AdminEmployee>[]>(
     () => [
@@ -249,6 +256,85 @@ export default function AllEmployeeList() {
     [promoteMutation, fireMutation, handleFire, handlePromote],
   )
 
+  const cardView = isMobile && viewMode === "card" ? (
+    <div className="grid gap-3">
+      {empList.map((emp) => {
+        const isEmployee = emp.role === "employee"
+        const isActive = emp.status === "active"
+        return (
+          <Card key={emp._id} className="border-primary/10 bg-bg transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex size-10 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                  {emp.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{emp.name}</p>
+                  <p className="text-xs text-text/40 truncate">{emp.email}</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Badge
+                    variant={emp.role === "admin" ? "default" : "secondary"}
+                    className={
+                      emp.role === "admin"
+                        ? "bg-primary/10 text-primary"
+                        : emp.role === "hr"
+                          ? "bg-blue-500/10 text-blue-600"
+                          : "bg-text/5 text-text/60"
+                    }
+                  >
+                    {emp.role.charAt(0).toUpperCase() + emp.role.slice(1)}
+                  </Badge>
+                </div>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-sm">
+                <span className="text-text/60">{emp.designation || "—"}</span>
+                <span className="font-medium">${emp.salary.toLocaleString()}</span>
+              </div>
+              <div className="mt-2 flex items-center gap-2 text-xs">
+                <span className={emp.isVerified ? "text-green-600" : "text-text/40"}>
+                  {emp.isVerified ? "Verified" : "Not Verified"}
+                </span>
+                <span>·</span>
+                <Badge
+                  variant={emp.status === "active" ? "default" : "destructive"}
+                  className={
+                    emp.status === "active"
+                      ? "bg-green-500/10 text-green-600 px-1.5 py-0 text-[10px]"
+                      : "bg-red-500/10 text-red-600 px-1.5 py-0 text-[10px]"
+                  }
+                >
+                  {emp.status.charAt(0).toUpperCase() + emp.status.slice(1)}
+                </Badge>
+              </div>
+              {isEmployee && isActive && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Button size="xs" variant="outline" onClick={() => handlePromote(emp)}>
+                    <UserCog className="size-3" />
+                    Make HR
+                  </Button>
+                  <Button size="xs" variant="outline" onClick={() => openSalaryDialog(emp)}>
+                    <DollarSign className="size-3" />
+                    Salary
+                  </Button>
+                  <Button size="xs" variant="outline" className="text-red-600 hover:text-red-700" onClick={() => handleFire(emp)}>
+                    <UserX className="size-3" />
+                    Fire
+                  </Button>
+                </div>
+              )}
+              {!isActive && (
+                <div className="mt-3">
+                  <Badge variant="secondary" className="bg-text/5 text-text/40 text-xs">Inactive</Badge>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )
+      })}
+    </div>
+  ) : undefined
+
   return (
     <div className="space-y-6">
       <div>
@@ -258,17 +344,24 @@ export default function AllEmployeeList() {
 
       <Card className="border-primary/10 bg-bg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg font-heading">
-            <ListChecks className="size-5 text-primary" />
-            All Employees
+          <CardTitle className="flex items-center justify-between gap-2 text-lg font-heading">
+            <span className="flex items-center gap-2">
+              <ListChecks className="size-5 text-primary" />
+              All Employees
+            </span>
+            <ViewToggle value={viewMode} onChange={setViewMode} />
           </CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
             columns={columns}
-            data={employees ?? []}
+            data={empList}
             loading={isLoading}
+            isError={isError}
+            onRetry={() => refetch()}
             emptyMessage="No employees found"
+            emptyIcon={User}
+            cardView={cardView}
           />
         </CardContent>
       </Card>
@@ -294,8 +387,9 @@ export default function AllEmployeeList() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Current Salary ($)</Label>
+              <Label htmlFor="current-salary">Current Salary ($)</Label>
               <Input
+                id="current-salary"
                 type="number"
                 value={salaryTarget?.salary ?? 0}
                 readOnly
@@ -303,15 +397,17 @@ export default function AllEmployeeList() {
               />
             </div>
             <div className="space-y-2">
-              <Label>New Salary ($)</Label>
+              <Label htmlFor="new-salary">New Salary ($)</Label>
               <Input
+                id="new-salary"
                 type="number"
                 value={newSalary}
                 onChange={(e) => setNewSalary(e.target.value)}
                 min={(salaryTarget?.salary ?? 0) + 1}
                 placeholder="Enter new salary"
+                aria-describedby="salary-hint"
               />
-              <p className="text-xs text-text/40">
+              <p id="salary-hint" className="text-xs text-text/40">
                 Salary can only be increased
               </p>
             </div>

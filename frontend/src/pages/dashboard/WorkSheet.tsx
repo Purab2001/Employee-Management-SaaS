@@ -6,9 +6,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { toast } from "sonner"
 import DatePicker from "react-datepicker"
 import "react-datepicker/dist/react-datepicker.css"
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, ClipboardList } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Select,
   SelectContent,
@@ -19,6 +20,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ErrorState } from "@/components/shared/ErrorState"
+import { EmptyState } from "@/components/shared/EmptyState"
 import {
   getWorkSheets,
   createWorkSheet,
@@ -42,7 +45,7 @@ export default function WorkSheet() {
   const [editingEntry, setEditingEntry] = useState<WorkSheetEntry | null>(null)
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
 
-  const { data: entries, isLoading } = useQuery({
+  const { data: entries, isLoading, isError, refetch } = useQuery({
     queryKey: ["worksheets"],
     queryFn: getWorkSheets,
   })
@@ -149,12 +152,12 @@ export default function WorkSheet() {
             className="flex flex-col gap-4 sm:flex-row sm:items-end"
           >
             <div className="flex flex-col gap-1.5 sm:w-40">
-              <label className="text-xs font-medium text-text/60">Task</label>
+              <Label htmlFor="task" className="text-xs font-medium text-text/60">Task</Label>
               <Select
                 value={selectedTask}
                 onValueChange={(v) => v && setValue("task", v)}
               >
-                <SelectTrigger>
+                <SelectTrigger id="task" aria-describedby="task-error">
                   <SelectValue placeholder="Select task" />
                 </SelectTrigger>
                 <SelectContent>
@@ -167,43 +170,50 @@ export default function WorkSheet() {
               </Select>
               <input type="hidden" {...register("task")} />
               {errors.task && (
-                <p className="text-xs text-destructive" role="alert">
+                <p id="task-error" className="text-xs text-destructive" role="alert">
                   {errors.task.message}
                 </p>
               )}
             </div>
 
             <div className="flex flex-col gap-1.5 sm:w-28">
-              <label className="text-xs font-medium text-text/60">Hours</label>
+              <Label htmlFor="hours" className="text-xs font-medium text-text/60">Hours</Label>
               <Input
+                id="hours"
                 type="number"
                 step="0.5"
                 min="0.5"
                 max="24"
                 placeholder="0.5"
                 aria-invalid={!!errors.hours}
+                aria-describedby={errors.hours ? "hours-error" : "hours-hint"}
                 {...register("hours")}
               />
+              <p id="hours-hint" className="text-xs text-text/30 hidden sm:block">
+                0.5 - 24 hours
+              </p>
               {errors.hours && (
-                <p className="text-xs text-destructive" role="alert">
+                <p id="hours-error" className="text-xs text-destructive" role="alert">
                   {errors.hours.message}
                 </p>
               )}
             </div>
 
             <div className="flex flex-col gap-1.5 sm:w-40">
-              <label className="text-xs font-medium text-text/60">Date</label>
+              <Label htmlFor="work-date" className="text-xs font-medium text-text/60">Date</Label>
               <div className="[&_.react-datepicker-wrapper]:w-full [&_.react-datepicker__input-container>input]:flex [&_.react-datepicker__input-container>input]:h-8 [&_.react-datepicker__input-container>input]:w-full [&_.react-datepicker__input-container>input]:rounded-lg [&_.react-datepicker__input-container>input]:border [&_.react-datepicker__input-container>input]:border-input [&_.react-datepicker__input-container>input]:bg-transparent [&_.react-datepicker__input-container>input]:px-2.5 [&_.react-datepicker__input-container>input]:text-sm [&_.react-datepicker__input-container>input]:outline-none [&_.react-datepicker__input-container>input]:transition-colors [&_.react-datepicker__input-container>input]:focus-visible:border-ring [&_.react-datepicker__input-container>input]:focus-visible:ring-3 [&_.react-datepicker__input-container>input]:focus-visible:ring-ring/50">
                 <DatePicker
+                  id="work-date"
                   selected={selectedDate}
                   onChange={handleDateChange}
                   dateFormat="yyyy-MM-dd"
                   placeholderText="Pick a date"
+                  aria-describedby={errors.date ? "date-error" : undefined}
                 />
               </div>
               <input type="hidden" {...register("date")} />
               {errors.date && (
-                <p className="text-xs text-destructive" role="alert">
+                <p id="date-error" className="text-xs text-destructive" role="alert">
                   {errors.date.message}
                 </p>
               )}
@@ -227,15 +237,25 @@ export default function WorkSheet() {
       {isLoading ? (
         <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            <Skeleton key={i} className="h-20 w-full rounded-xl" shimmer />
           ))}
         </div>
+      ) : isError ? (
+        <Card className="border-primary/10 bg-bg">
+          <CardContent>
+            <ErrorState
+              title="Failed to load entries"
+              message="Could not fetch your work entries. Please try again."
+              onRetry={() => refetch()}
+            />
+          </CardContent>
+        </Card>
       ) : entries && entries.length > 0 ? (
         <div className="space-y-3">
           {entries.map((entry) => (
             <Card
               key={entry._id}
-              className="border-primary/10 bg-bg transition-all hover:border-primary/30"
+              className="border-primary/10 bg-bg transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
             >
               <CardContent className="flex items-center justify-between p-4">
                 <div className="flex flex-wrap items-center gap-3">
@@ -274,11 +294,12 @@ export default function WorkSheet() {
         </div>
       ) : (
         <Card className="border-primary/10 bg-bg">
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-sm text-text/40">No work entries yet</p>
-            <p className="text-xs text-text/30">
-              Add your first work entry using the form above
-            </p>
+          <CardContent>
+            <EmptyState
+              icon={ClipboardList}
+              title="No work entries yet"
+              description="Add your first work entry using the form above"
+            />
           </CardContent>
         </Card>
       )}

@@ -20,6 +20,9 @@ import {
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
+import { ErrorState } from "@/components/shared/ErrorState"
+import { EmptyState } from "@/components/shared/EmptyState"
+import type { LucideIcon } from "lucide-react"
 
 interface DataTableProps<TData> {
   columns: ColumnDef<TData>[]
@@ -27,7 +30,14 @@ interface DataTableProps<TData> {
   pageSize?: number
   loading?: boolean
   emptyMessage?: string
+  emptyIcon?: LucideIcon
+  emptyAction?: { label: string; onClick: () => void }
   toolbar?: ReactNode
+  isError?: boolean
+  errorTitle?: string
+  errorMessage?: string
+  onRetry?: () => void
+  cardView?: ReactNode
 }
 
 export function DataTable<TData>({
@@ -36,7 +46,14 @@ export function DataTable<TData>({
   pageSize = 10,
   loading = false,
   emptyMessage = "No results",
+  emptyIcon,
+  emptyAction,
   toolbar,
+  isError = false,
+  errorTitle,
+  errorMessage,
+  onRetry,
+  cardView,
 }: DataTableProps<TData>) {
   const [sorting, setSorting] = useState<SortingState>([])
   const [pagination, setPagination] = useState<PaginationState>({
@@ -54,6 +71,19 @@ export function DataTable<TData>({
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
   })
+
+  if (isError) {
+    return (
+      <div className="space-y-3">
+        {toolbar}
+        <ErrorState
+          title={errorTitle}
+          message={errorMessage}
+          onRetry={onRetry}
+        />
+      </div>
+    )
+  }
 
   if (loading) {
     return (
@@ -92,42 +122,50 @@ export function DataTable<TData>({
   return (
     <div className="flex flex-col gap-3">
       {toolbar}
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            {table.getHeaderGroups().map((group) => (
-              <TableRow key={group.id}>
-                {group.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody>
-            {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
+      {cardView && data.length > 0 ? (
+        cardView
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              {table.getHeaderGroups().map((group) => (
+                <TableRow key={group.id}>
+                  {group.headers.map((header) => (
+                    <TableHead key={header.id}>
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(header.column.columnDef.header, header.getContext())}
+                    </TableHead>
                   ))}
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="h-32 text-center">
-                  <p className="text-muted-foreground">{emptyMessage}</p>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
-      </div>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {table.getRowModel().rows.length ? (
+                table.getRowModel().rows.map((row) => (
+                  <TableRow key={row.id}>
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell key={cell.id}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={columns.length} className="h-32 text-center">
+                    <EmptyState
+                      icon={emptyIcon}
+                      title={emptyMessage}
+                      action={emptyAction}
+                    />
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      )}
       {table.getPageCount() > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-sm text-muted-foreground">

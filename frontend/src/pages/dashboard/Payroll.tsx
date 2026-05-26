@@ -2,9 +2,10 @@ import { useMemo, useState, useEffect, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { type ColumnDef } from "@tanstack/react-table"
 import { useSearchParams, useNavigate } from "react-router"
-import { Database, Plus, CheckCircle, XCircle, ExternalLink, Loader2 } from "lucide-react"
+import { Database, Plus, CheckCircle, XCircle, ExternalLink, Loader2, DollarSign } from "lucide-react"
 import { toast } from "sonner"
 import { DataTable } from "@/components/shared/DataTable"
+import { ViewToggle } from "@/components/shared/ViewToggle"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -31,6 +32,7 @@ import {
   createPaymentSession,
   type PayrollRecord,
 } from "@/api/adminService"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -50,6 +52,9 @@ export default function Payroll() {
   const [selectedYear, setSelectedYear] = useState(currentYear)
   const [payingId, setPayingId] = useState<string | null>(null)
 
+  const isMobile = useMediaQuery("(max-width: 640px)")
+  const [viewMode, setViewMode] = useState<"table" | "card">("table")
+
   useEffect(() => {
     const payment = searchParams.get("payment")
     if (payment === "success") {
@@ -62,7 +67,7 @@ export default function Payroll() {
     }
   }, [searchParams, queryClient, navigate])
 
-  const { data: payrolls, isLoading: payrollsLoading } = useQuery({
+  const { data: payrolls, isLoading: payrollsLoading, isError: payrollsError, refetch: refetchPayrolls } = useQuery({
     queryKey: ["admin", "payrolls"],
     queryFn: getPayrolls,
   })
@@ -133,6 +138,8 @@ export default function Payroll() {
       year: selectedYear,
     })
   }
+
+  const payrollList = payrolls ?? []
 
   const columns = useMemo<ColumnDef<PayrollRecord>[]>(
     () => [
@@ -224,14 +231,66 @@ export default function Payroll() {
     [payingId, handlePay],
   )
 
+  const cardView = isMobile && viewMode === "card" ? (
+    <div className="grid gap-3">
+      {payrollList.map((record) => (
+        <Card key={record._id} className="border-primary/10 bg-bg transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="flex size-8 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">
+                  {record.employeeId?.name?.charAt(0).toUpperCase() ?? "?"}
+                </div>
+                <div>
+                  <p className="font-medium text-sm">{record.employeeId?.name ?? "Unknown"}</p>
+                  <p className="text-xs text-text/40">{record.employeeEmail}</p>
+                </div>
+              </div>
+              {record.paid ? (
+                <Badge className="bg-green-500/10 text-green-600">
+                  <CheckCircle className="mr-1 size-3" />
+                  Paid
+                </Badge>
+              ) : (
+                <Badge variant="secondary" className="bg-amber-500/10 text-amber-600">
+                  <XCircle className="mr-1 size-3" />
+                  Pending
+                </Badge>
+              )}
+            </div>
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="capitalize text-text/60">{record.month} {record.year}</span>
+              <span className="font-medium">${record.salary.toLocaleString()}</span>
+            </div>
+            {!record.paid && (
+              <Button
+                size="sm"
+                className="mt-3 w-full"
+                onClick={() => handlePay(record._id)}
+                disabled={payingId === record._id}
+              >
+                {payingId === record._id ? (
+                  <Loader2 className="mr-1 size-3.5 animate-spin" />
+                ) : (
+                  <ExternalLink className="mr-1 size-3.5" />
+                )}
+                Pay Now
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  ) : undefined
+
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-heading text-2xl font-bold">Payroll</h1>
           <p className="text-sm text-text/60">Approve and manage salary payments</p>
         </div>
-        <Button onClick={openApproveDialog}>
+        <Button onClick={openApproveDialog} className="w-full sm:w-auto">
           <Plus className="mr-1 size-4" />
           Approve Payroll
         </Button>
@@ -239,17 +298,24 @@ export default function Payroll() {
 
       <Card className="border-primary/10 bg-bg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg font-heading">
-            <Database className="size-5 text-primary" />
-            Payroll Records
+          <CardTitle className="flex items-center justify-between gap-2 text-lg font-heading">
+            <span className="flex items-center gap-2">
+              <Database className="size-5 text-primary" />
+              Payroll Records
+            </span>
+            <ViewToggle value={viewMode} onChange={setViewMode} />
           </CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
             columns={columns}
-            data={payrolls ?? []}
+            data={payrollList}
             loading={payrollsLoading}
+            isError={payrollsError}
+            onRetry={() => refetchPayrolls()}
             emptyMessage="No payroll records found"
+            emptyIcon={DollarSign}
+            cardView={cardView}
           />
         </CardContent>
       </Card>
@@ -264,12 +330,12 @@ export default function Payroll() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Employee</Label>
+              <Label htmlFor="approve-employee">Employee</Label>
               <Select
                 value={selectedEmployee}
                 onValueChange={(v) => v && setSelectedEmployee(v)}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="approve-employee" className="w-full">
                   <SelectValue placeholder="Select employee" />
                 </SelectTrigger>
                 <SelectContent>
@@ -282,12 +348,12 @@ export default function Payroll() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Month</Label>
+              <Label htmlFor="approve-month">Month</Label>
               <Select
                 value={selectedMonth}
                 onValueChange={(v) => v && setSelectedMonth(v)}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="approve-month" className="w-full">
                   <SelectValue placeholder="Select month" />
                 </SelectTrigger>
                 <SelectContent>
@@ -300,12 +366,12 @@ export default function Payroll() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Year</Label>
+              <Label htmlFor="approve-year">Year</Label>
               <Select
                 value={String(selectedYear)}
                 onValueChange={(v) => v && setSelectedYear(Number(v))}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="approve-year" className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

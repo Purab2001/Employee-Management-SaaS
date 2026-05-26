@@ -1,9 +1,12 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { type ColumnDef } from "@tanstack/react-table"
-import { BarChart3, Search, Clock } from "lucide-react"
+import { BarChart3, Search, Clock, ClipboardList } from "lucide-react"
 import { DataTable } from "@/components/shared/DataTable"
+import { ViewToggle } from "@/components/shared/ViewToggle"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Skeleton } from "@/components/ui/skeleton"
 import {
   Select,
   SelectContent,
@@ -12,6 +15,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { getProgress, getEmployees, type WorkLogEntry } from "@/api/hrService"
+import { useMediaQuery } from "@/hooks/useMediaQuery"
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -26,12 +30,15 @@ export default function Progress() {
   const [selectedMonth, setSelectedMonth] = useState("")
   const [selectedYear, setSelectedYear] = useState("")
 
-  const { data: employees } = useQuery({
+  const isMobile = useMediaQuery("(max-width: 640px)")
+  const [viewMode, setViewMode] = useState<"table" | "card">("table")
+
+  const { data: employees, isLoading: employeesLoading } = useQuery({
     queryKey: ["hr", "employees"],
     queryFn: getEmployees,
   })
 
-  const { data: progress, isLoading } = useQuery({
+  const { data: progress, isLoading, isError, refetch } = useQuery({
     queryKey: ["hr", "progress", selectedEmployee, selectedMonth, selectedYear],
     queryFn: () =>
       getProgress({
@@ -81,6 +88,29 @@ export default function Progress() {
     [],
   )
 
+  const cardView = isMobile && viewMode === "card" ? (
+    <div className="grid gap-3">
+      {entries.map((entry) => (
+        <Card key={entry._id} className="border-primary/10 bg-bg transition-all duration-300 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">{entry.employeeEmail}</span>
+              <Badge variant="outline">{entry.task}</Badge>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="text-text/60">
+                {new Date(entry.date).toLocaleDateString("en-US", {
+                  year: "numeric", month: "short", day: "numeric",
+                })}
+              </span>
+              <span className="font-medium">{entry.hours.toFixed(1)}h</span>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  ) : undefined
+
   return (
     <div className="space-y-6">
       <div>
@@ -90,12 +120,12 @@ export default function Progress() {
 
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
-          <Search className="size-4 text-text/40" />
+          <Search className="size-4 text-text/40" aria-hidden="true" />
           <span className="text-sm text-text/60">Filters:</span>
         </div>
 
         <Select value={selectedEmployee} onValueChange={(v) => v && setSelectedEmployee(v === "__all" ? "" : v)}>
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-48" aria-label="Filter by employee">
             <SelectValue placeholder="All Employees" />
           </SelectTrigger>
           <SelectContent>
@@ -109,7 +139,7 @@ export default function Progress() {
         </Select>
 
         <Select value={selectedMonth} onValueChange={(v) => v && setSelectedMonth(v === "__all" ? "" : v)}>
-          <SelectTrigger className="w-36">
+          <SelectTrigger className="w-36" aria-label="Filter by month">
             <SelectValue placeholder="All Months" />
           </SelectTrigger>
           <SelectContent>
@@ -123,7 +153,7 @@ export default function Progress() {
         </Select>
 
         <Select value={selectedYear} onValueChange={(v) => v && setSelectedYear(v === "__all" ? "" : v)}>
-          <SelectTrigger className="w-28">
+          <SelectTrigger className="w-28" aria-label="Filter by year">
             <SelectValue placeholder="All Years" />
           </SelectTrigger>
           <SelectContent>
@@ -141,7 +171,7 @@ export default function Progress() {
         <Card className="border-primary/10 bg-bg">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-sm text-text/60">
-              <Clock className="size-4 text-primary" />
+              <Clock className="size-4 text-primary" aria-hidden="true" />
               Total Hours
             </div>
             <p className="mt-1 text-2xl font-bold">{totalHours.toFixed(1)}h</p>
@@ -150,7 +180,7 @@ export default function Progress() {
         <Card className="border-primary/10 bg-bg">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-sm text-text/60">
-              <BarChart3 className="size-4 text-primary" />
+              <BarChart3 className="size-4 text-primary" aria-hidden="true" />
               Total Entries
             </div>
             <p className="mt-1 text-2xl font-bold">{entries.length}</p>
@@ -160,18 +190,33 @@ export default function Progress() {
 
       <Card className="border-primary/10 bg-bg">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-lg font-heading">
-            <BarChart3 className="size-5 text-primary" />
-            Work Logs
+          <CardTitle className="flex items-center justify-between gap-2 text-lg font-heading">
+            <span className="flex items-center gap-2">
+              <BarChart3 className="size-5 text-primary" />
+              Work Logs
+            </span>
+            <ViewToggle value={viewMode} onChange={setViewMode} />
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <DataTable
-            columns={columns}
-            data={entries}
-            loading={isLoading}
-            emptyMessage="No work logs found for the selected filters"
-          />
+          {employeesLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" shimmer />
+              ))}
+            </div>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={entries}
+              loading={isLoading}
+              isError={isError}
+              onRetry={() => refetch()}
+              emptyMessage="No work logs found for the selected filters"
+              emptyIcon={ClipboardList}
+              cardView={cardView}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

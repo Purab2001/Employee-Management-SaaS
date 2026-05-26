@@ -4,19 +4,21 @@ import { User, Mail, Briefcase, DollarSign, CreditCard, BadgeCheck, Clock, Walle
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import { ErrorState } from "@/components/shared/ErrorState"
+import { EmptyState } from "@/components/shared/EmptyState"
 import { getEmployeeById, getEmployeePayments } from "@/api/hrService"
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 
 export default function EmployeeDetails() {
   const { id } = useParams<{ id: string }>()
 
-  const { data: details, isLoading: loadingDetails } = useQuery({
+  const { data: details, isLoading: loadingDetails, isError: detailsError, refetch: refetchDetails } = useQuery({
     queryKey: ["hr", "employee", id],
     queryFn: () => getEmployeeById(id!),
     enabled: !!id,
   })
 
-  const { data: payments, isLoading: loadingPayments } = useQuery({
+  const { data: payments, isLoading: loadingPayments, isError: paymentsError, refetch: refetchPayments } = useQuery({
     queryKey: ["hr", "employee", id, "payments"],
     queryFn: () => getEmployeePayments(id!),
     enabled: !!id,
@@ -25,11 +27,23 @@ export default function EmployeeDetails() {
   if (loadingDetails) {
     return (
       <div className="space-y-6">
-        <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-8 w-48" shimmer />
         <div className="grid gap-6 md:grid-cols-2">
-          <Skeleton className="h-64 rounded-xl" />
-          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" shimmer />
+          <Skeleton className="h-64 rounded-xl" shimmer />
         </div>
+      </div>
+    )
+  }
+
+  if (detailsError) {
+    return (
+      <div className="space-y-6">
+        <ErrorState
+          title="Failed to load employee"
+          message="Could not fetch employee details. Please try again."
+          onRetry={() => refetchDetails()}
+        />
       </div>
     )
   }
@@ -95,12 +109,12 @@ export default function EmployeeDetails() {
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3" role="list">
               {infoRows.map((row) => {
                 const Icon = row.icon
                 return (
-                  <div key={row.label} className="flex items-center gap-3 text-sm">
-                    <Icon className="size-4 shrink-0 text-text/40" />
+                  <div key={row.label} className="flex items-center gap-3 text-sm" role="listitem">
+                    <Icon className="size-4 shrink-0 text-text/40" aria-hidden="true" />
                     <span className="text-text/60 min-w-24">{row.label}</span>
                     <span className="font-medium">{row.value}</span>
                   </div>
@@ -147,11 +161,21 @@ export default function EmployeeDetails() {
         </CardHeader>
         <CardContent>
           {loadingPayments ? (
-            <Skeleton className="h-64 w-full rounded-lg" />
-          ) : chartData.length === 0 ? (
+            <Skeleton className="h-64 w-full rounded-lg" shimmer />
+          ) : paymentsError ? (
             <div className="flex h-64 items-center justify-center">
-              <p className="text-sm text-text/40">No payment history yet</p>
+              <ErrorState
+                title="Failed to load payment history"
+                message="Could not fetch payment data."
+                onRetry={() => refetchPayments()}
+              />
             </div>
+          ) : chartData.length === 0 ? (
+            <EmptyState
+              icon={Wallet}
+              title="No payment history yet"
+              description="Payments will appear here once salary is processed"
+            />
           ) : (
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">

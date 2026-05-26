@@ -66,7 +66,7 @@ exports.handleWebhook = async (req, res) => {
     );
   } catch (err) {
     console.error("Webhook signature verification failed:", err.message);
-    return res.status(400).json({ message: `Webhook Error: ${err.message}` });
+    return res.status(400).json({ message: "Webhook signature verification failed" });
   }
 
   if (event.type === "checkout.session.completed") {

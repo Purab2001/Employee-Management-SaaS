@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const WorkSheet = require("../models/WorkSheet");
 const PaymentHistory = require("../models/PaymentHistory");
+const { VALID_MONTHS, isValidObjectId, isValidMonth, isValidYear, isPositiveNumber } = require("../utils/validation");
 
 exports.getEmployees = async (req, res) => {
   try {
@@ -17,6 +18,10 @@ exports.getEmployees = async (req, res) => {
 
 exports.getEmployeeById = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid employee ID" });
+    }
+
     const employee = await User.findById(req.params.id).select("-__v");
 
     if (!employee) {
@@ -50,6 +55,10 @@ exports.getEmployeeById = async (req, res) => {
 
 exports.verifyEmployee = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid employee ID" });
+    }
+
     const employee = await User.findById(req.params.id).select("-__v");
 
     if (!employee) {
@@ -78,6 +87,24 @@ exports.payEmployee = async (req, res) => {
       return res.status(400).json({ message: "Month, year, and amount are required" });
     }
 
+    if (!isValidMonth(month)) {
+      return res.status(400).json({ message: "Invalid month name" });
+    }
+
+    const yearNum = Number(year);
+    if (!Number.isInteger(yearNum) || yearNum < 1900 || yearNum > 2100) {
+      return res.status(400).json({ message: "Invalid year" });
+    }
+
+    const amountNum = Number(amount);
+    if (!Number.isFinite(amountNum) || amountNum <= 0 || amountNum > 10000000) {
+      return res.status(400).json({ message: "Amount must be greater than 0" });
+    }
+
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid employee ID" });
+    }
+
     const employee = await User.findById(req.params.id);
 
     if (!employee) {
@@ -94,8 +121,8 @@ exports.payEmployee = async (req, res) => {
 
     const existing = await PaymentHistory.findOne({
       employeeEmail: employee.email,
-      month,
-      year,
+      month: month.toLowerCase(),
+      year: yearNum,
     });
 
     if (existing) {
@@ -106,9 +133,9 @@ exports.payEmployee = async (req, res) => {
 
     const payment = await PaymentHistory.create({
       employeeEmail: employee.email,
-      month,
-      year,
-      amount,
+      month: month.toLowerCase(),
+      year: yearNum,
+      amount: amountNum,
       transactionId,
       paymentDate: new Date(),
     });
@@ -122,6 +149,10 @@ exports.payEmployee = async (req, res) => {
 
 exports.getEmployeePayments = async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(400).json({ message: "Invalid employee ID" });
+    }
+
     const employee = await User.findById(req.params.id);
 
     if (!employee) {
@@ -146,36 +177,51 @@ exports.getProgress = async (req, res) => {
     const filter = {};
 
     if (employeeEmail) {
+      if (typeof employeeEmail !== "string" || employeeEmail.length > 254) {
+        return res.status(400).json({ message: "Invalid employee email" });
+      }
       filter.employeeEmail = employeeEmail.toLowerCase();
     }
 
     if (month && year) {
-      const monthIndex = [
-        "january", "february", "march", "april", "may", "june",
-        "july", "august", "september", "october", "november", "december",
-      ].indexOf(month.toLowerCase());
+      if (!isValidMonth(month)) {
+        return res.status(400).json({ message: "Invalid month name" });
+      }
+
+      const yearNum = Number(year);
+      if (!Number.isInteger(yearNum) || yearNum < 1900 || yearNum > 2100) {
+        return res.status(400).json({ message: "Invalid year" });
+      }
+
+      const monthIndex = VALID_MONTHS.indexOf(month.toLowerCase());
 
       if (monthIndex !== -1) {
-        const startOfMonth = new Date(parseInt(year), monthIndex, 1);
-        const endOfMonth = new Date(parseInt(year), monthIndex + 1, 0, 23, 59, 59, 999);
+        const startOfMonth = new Date(yearNum, monthIndex, 1);
+        const endOfMonth = new Date(yearNum, monthIndex + 1, 0, 23, 59, 59, 999);
 
         filter.date = { $gte: startOfMonth, $lte: endOfMonth };
       }
     } else if (year) {
-      const startOfYear = new Date(parseInt(year), 0, 1);
-      const endOfYear = new Date(parseInt(year), 11, 31, 23, 59, 59, 999);
+      const yearNum = Number(year);
+      if (!Number.isInteger(yearNum) || yearNum < 1900 || yearNum > 2100) {
+        return res.status(400).json({ message: "Invalid year" });
+      }
+
+      const startOfYear = new Date(yearNum, 0, 1);
+      const endOfYear = new Date(yearNum, 11, 31, 23, 59, 59, 999);
 
       filter.date = { $gte: startOfYear, $lte: endOfYear };
     } else if (month) {
-      const currentYear = new Date().getFullYear();
-      const monthIndex = [
-        "january", "february", "march", "april", "may", "june",
-        "july", "august", "september", "october", "november", "december",
-      ].indexOf(month.toLowerCase());
+      if (!isValidMonth(month)) {
+        return res.status(400).json({ message: "Invalid month name" });
+      }
+
+      const currentYearNum = new Date().getFullYear();
+      const monthIndex = VALID_MONTHS.indexOf(month.toLowerCase());
 
       if (monthIndex !== -1) {
-        const startOfMonth = new Date(currentYear, monthIndex, 1);
-        const endOfMonth = new Date(currentYear, monthIndex + 1, 0, 23, 59, 59, 999);
+        const startOfMonth = new Date(currentYearNum, monthIndex, 1);
+        const endOfMonth = new Date(currentYearNum, monthIndex + 1, 0, 23, 59, 59, 999);
 
         filter.date = { $gte: startOfMonth, $lte: endOfMonth };
       }

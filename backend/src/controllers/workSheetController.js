@@ -1,4 +1,5 @@
 const WorkSheet = require("../models/WorkSheet");
+const { VALID_TASKS, isValidObjectId, isValidDate } = require("../utils/validation");
 
 exports.getWorkSheets = async (req, res) => {
   try {
@@ -21,10 +22,23 @@ exports.createWorkSheet = async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
+    if (!VALID_TASKS.includes(task)) {
+      return res.status(400).json({ message: "Invalid task. Must be one of: " + VALID_TASKS.join(", ") });
+    }
+
+    const hoursNum = Number(hours);
+    if (!Number.isFinite(hoursNum) || hoursNum < 0.5 || hoursNum > 24) {
+      return res.status(400).json({ message: "Hours must be between 0.5 and 24" });
+    }
+
+    if (!isValidDate(date)) {
+      return res.status(400).json({ message: "Valid date is required" });
+    }
+
     const entry = await WorkSheet.create({
       employeeEmail: req.user.email,
       task,
-      hours,
+      hours: hoursNum,
       date: new Date(date),
     });
 
@@ -40,9 +54,37 @@ exports.updateWorkSheet = async (req, res) => {
     const { id } = req.params;
     const { task, hours, date } = req.body;
 
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid work entry ID" });
+    }
+
+    const update = {};
+
+    if (task !== undefined) {
+      if (!VALID_TASKS.includes(task)) {
+        return res.status(400).json({ message: "Invalid task" });
+      }
+      update.task = task;
+    }
+
+    if (hours !== undefined) {
+      const hoursNum = Number(hours);
+      if (!Number.isFinite(hoursNum) || hoursNum < 0.5 || hoursNum > 24) {
+        return res.status(400).json({ message: "Hours must be between 0.5 and 24" });
+      }
+      update.hours = hoursNum;
+    }
+
+    if (date !== undefined) {
+      if (!isValidDate(date)) {
+        return res.status(400).json({ message: "Valid date is required" });
+      }
+      update.date = new Date(date);
+    }
+
     const entry = await WorkSheet.findOneAndUpdate(
       { _id: id, employeeEmail: req.user.email },
-      { task, hours, date: date ? new Date(date) : undefined },
+      update,
       { new: true, runValidators: true }
     );
 
@@ -60,6 +102,10 @@ exports.updateWorkSheet = async (req, res) => {
 exports.deleteWorkSheet = async (req, res) => {
   try {
     const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ message: "Invalid work entry ID" });
+    }
 
     const entry = await WorkSheet.findOneAndDelete({
       _id: id,
